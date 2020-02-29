@@ -1,12 +1,12 @@
    pragma solidity <0.6.20; 
    pragma experimental ABIEncoderV2;
-  import "./externalStorage.sol";
+  import "./externalStoragee.sol";
   import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/ownership/Ownable.sol";
   import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/math/SafeMath.sol";
  
   
 
-contract BloceducareCerts is ExternalStorage,Ownable,SafeMath {
+contract BloceducareCerts is ExternalStorage {
   
 //events
 	//Admin related events
@@ -200,7 +200,7 @@ contract BloceducareCerts is ExternalStorage,Ownable,SafeMath {
 
 
 	function changeStudentName(bytes32 _email,bytes32 _newFirstName,bytes32  _newLastName) onlyAdmins 
-	onlyValidStudents(_email) public view{
+	onlyValidStudents(_email) public {
 	     bytes32ToString(_newFirstName); 
 	     bytes32ToString(_newLastName); 
 	     Student memory _student;
@@ -210,7 +210,7 @@ contract BloceducareCerts is ExternalStorage,Ownable,SafeMath {
 	     emit StudentNameUpdated(_email,_newFirstName,_newLastName);
 	}
 	
-	function changeStudentCommendation(bytes32 _email,bytes32 _newCommendation)  onlyAdmins onlyValidStudents(_email) public view{
+	function changeStudentCommendation(bytes32 _email,bytes32 _newCommendation)  onlyAdmins onlyValidStudents(_email) public {
 	    bytes32ToString(_newCommendation);
 	    Student memory _student;
 	    _student.email = _email;
