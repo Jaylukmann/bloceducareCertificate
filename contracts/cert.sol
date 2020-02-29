@@ -1,324 +1,410 @@
-  pragma solidity <0.7.10;  
+   pragma solidity <0.6.20; 
+   pragma experimental ABIEncoderV2;
+  import "./externalStoragee.sol";
+  import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/ownership/Ownable.sol";
+  import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/math/SafeMath.sol";
+ 
+  
 
-contract BloceducareCerts{
-	//GLOBAL STATE VARIABLES
-	address private owner;
-	address private newOwner;
-	uint16  adminIndex; 
-	uint16 maxAdminIndex;
-	uint studentIndex;
-	uint16 assignmentIndex;
-	bool ownershipEnabled = true;
-	bool certificateExist = false;
-
-    //ENUMS
-	enum grades {noGrade,good,great,outstanding,epic,legendary}
-	grades grade;
-	//grades constant defaultGrade = grades.noGrade;
-   
-
-	enum assignmentStatus{inactive,pending,completed,cancelled}
-	assignmentStatus assignment;
-	//assignments constant defaultAssignment = assignments.inactive;
-	// assignment = assignments.COMPLETED;
-
-    //STRUCTS  
-	struct Admin{
-		bool authorized;
-		uint id;
-	}
-
-	struct Assignment{
-		string link;
-		assignmentStatus status;
-	}
-
-	struct Student{
-	    string email;
-		bytes32 firstName;
-		bytes32 lastName;
-		bytes32 commendation; 
-		grades grade;
-		assignmentStatus assignment;
-		bool active;
-		 
-	}
-	struct Certificate{
-	address studentAddress; 
-	string email;
-	bytes32 firstName;
-	bytes32 lastName;
-	bytes32 commendation;
-	grades grade;
-	assignmentStatus assignment;
-	uint assignmentIndex;
-
-	} 
-
-//Arrays of certificates,admins,students,and assignments
-	string[] certificateList;
-	uint[] admin;
-	string [] studentList;
-	string[] assignmentList;
-
-	//mapping
-	mapping(address => Certificate) public certificates;
-	mapping(string => mapping(address => Certificate)) public byName;
-	mapping(string => bool) private isParticipant;
-	mapping (address => bool) admins;
-	mapping(address =>Admin)adminReverseMapping;
-	mapping(address => Student) students;
-	mapping(string => uint) studentsReverseMapping;
-	mapping(uint => Assignment) assignments;
-
-	//events
+contract BloceducareCerts is ExternalStorage{
+  
+//events
 	//Admin related events
 	event AdminAdded(address _newAdmin,uint _maxAdminIndex);
 	event AdminRemoved(address _newAdmin, uint _maxAdminIndex);
 	event AdminLimitChanged(uint _newAdminLimit);
 
      //Student related events
-	event StudentAdded(string msg,string _email,bytes32 _firstName,bytes32 _lastName,bytes32 _commendation);
-	event StudentRemoved(string msg,string _email,uint studentIndex);
-    event StudentNameUpdated(string _Email,bytes32 _newCommendation);
-	event StudentCommendationUpdated(string _Email,bytes32 _newFirstName,bytes32 _newLastName);
-	event StudentGradeUpdated(string _Email,grades _newGrade);
-	event StudentEmailUpdated(string _oldEmail,string _newEmail);
+	event StudentAdded(string msg,bytes32 _email,bytes32 _firstName,bytes32 _lastName,bytes32 _commendation);
+	event StudentRemoved(string msg,bytes32 _email,uint studentIndex);
+    event StudentNameUpdated(bytes32 _Email,bytes32 _newCommendation);
+	event StudentCommendationUpdated(bytes32 _Email,bytes32 _newFirstName,bytes32 _newLastName);
+	event StudentGradeUpdated(bytes32 _Email,Grades _newGrade);
+	event StudentEmailUpdated(bytes32 _oldEmail,bytes32 _newEmail);
+	event studentVerified(string msg,bytes32 addressVerified,string _msg);
 
     //Assignment related events
-	event AssignmentAdded(string _email,string link,assignmentStatus status,uint16 assignmentIndex);
-	event AssignmentUpdated(string _email,string link,uint16 _assignmentIndex,assignmentStatus _newstatus);
+	event AssignmentAdded(bytes32 link,AssignmentStatus status,uint16 assignmentIndex);
+	event AssignmentUpdated( bytes32 email, AssignmentStatus _newstatus,uint16 _assignmentIndex);
 
 	//Certificate related events
-	event certCreated(string _msg,bytes32 _name,string _with,address students,string by,address creator); 
+	event certCreated(string _msg,string _name,string _with,address students,string by,address creator); 
 	event certRemoved(string _msg,address _participantAddress,string _msg2,string at,uint time);
-	event certVerified(string msg,address addressVerified,string _msg);
-	
-	
-	
-	//MODIFIERS
+
+ //MODIFIERS
 	modifier onlyOwner(){
-		require(msg.sender == owner, "Accessible only by the owner");
+		require(msg.sender == owner, "Access denied,not the owner");
 		_; 
 	}
 	modifier onlyNewOwner(){
-		require(msg.sender == newOwner, "Accessible only by the new owner");
+		require(msg.sender == newOwner, "Access denied,not a new owner");
 		_; 
 	}
-
 	modifier onlyAdmins(){
-		require(admins[msg.sender],"Accessible by only Admins");
-		_; 
+	   
+	    Admin memory _admin;
+	    require(admins[msg.sender].authorized == false,"Access denied,only admin");
+	    _;
 	}
+	
 	modifier onlyNonOwnerAdmins(){
-		require(admins[owner] == false && admins[newOwner] == false,"Accessible only by Admins that are not owners");
-		_; 
+          
+        require(admins[msg.sender].authorized == false && msg.sender != owner ,"Access denied,only Admins that are not owner are allowed");
+	    _;
 	}
 		modifier onlyPermissibleAdminLimit(){
 		require(adminIndex == maxAdminIndex,"The admin limit has been reached");
 		_; 
 	}
-	modifier onlyNonExistentStudents(string memory _email){
+	modifier onlyNonExistentStudents(bytes32 _email){
 	    Student memory _student;
 	    _student.email = _email;
-		require(_student.active = false,"Student already exist");
+		require(_student.active == false,"Student already exist");
 		_; 
 	}
-	modifier onlyValidStudents(string memory _email){
+	modifier onlyValidStudents(bytes32 _email){
 		 Student memory _student;
 	    _student.email = _email;
-		require(_student.active = false,"Student already exist");
+		require(_student.active = true,"Student is not validated");
 		_; 
 	}
+
+	
 	//CONSTRUCTOR
 	constructor() public{
-		maxAdminIndex = 2;
 		owner = msg.sender;
-		admins[owner] == true;
-		grade = grades.noGrade;
-		assignment = assignmentStatus.inactive;
-		//addAdmin(); 
+		maxAdminIndex = 2;
+		grade = Grades.noGrade;
+		assignment = AssignmentStatus.inactive;
+		_addAdmin(owner);
+		adminList.push(owner);
+		adminIndex += 1;
+		
 	}
 
 	//FUNCTIONS
 
 	//transfer ownership of the contract to a given address
-	  function transferOwnership(address _newOwner) public onlyOwner {
-        owner = _newOwner;
+	  function transferOwnership(address _newOwner) public onlyOwner  {
+	      _removeAdmin(owner);
+	        addAdmin(_newOwner);
+	         owner = _newOwner;
     }
-	//relinquish ownership of the contract
+   
+	//renounce ownership of the contract
 	 function renounceOwnership() public onlyOwner  returns(bool) {
+	     _removeAdmin(owner); 
+	     renounceOwnership();
         ownershipEnabled = false;
 		return  ownershipEnabled;
     }
     //Allows owner to add an admin
 	 function addAdmin(address _newAdmin) public onlyOwner{
-		 require(adminIndex <= maxAdminIndex,"Maximum number of admins reached");
-		Admin memory _adminStruct;
-		_adminStruct =  adminReverseMapping[_newAdmin] ;
-		adminIndex += 1;
+	     Admin memory _admin;
+		_admin.adminId = adminIndex;
+		require(adminIndex <= maxAdminIndex,"Maximum number of admins reached");
+		_addAdmin(_newAdmin);
 		emit AdminAdded(_newAdmin,adminIndex);
        }
-
+ 
 	   //Allows new owner to add an admin
-	   function _addAdmin(address _newAdmin) public onlyNewOwner{
-         require(adminIndex <= maxAdminIndex,"Maximum number of admins reached");
-		Admin memory _adminStruct;
-		_adminStruct =  adminReverseMapping[_newAdmin]; 
+	   function _addAdmin(address _newAdmin)  onlyOwner internal returns(bool){
+	    Admin memory _admin;
+	     require(admins[_newAdmin].authorized == false,"Admin already exist");
+	     admins[_newAdmin] = _admin;
 		adminIndex += 1;
+		adminList.push(_newAdmin);
 		emit AdminAdded(_newAdmin,adminIndex);
        }
-
+       
+       function getAdmin() view public returns (address[] memory){
+             return adminList;
+     }
 	   //Allow the owner to remove an Admin
 	   function removeAdmin(address _adminAddress) public onlyOwner{
+	       require(_adminAddress != owner,"Owner cannot be disabled");
 				 delete admins[_adminAddress];
-				 adminIndex -= 1;	
+				 minus(adminIndex,1);
+				 _removeAdmin(_adminAddress);
 				 emit AdminRemoved( _adminAddress,adminIndex);
 	   }
 	    //Allow the current owner to remove an Admin
-	   function _removeAdmin(address _adminAddress) public onlyNewOwner{
+	   function _removeAdmin(address _adminAddress) internal onlyOwner{ 
+		     	 Admin memory _admin;
+		     	 _admin.adminId = adminIndex;
+		   		 require(_admin.authorized == false,"Admin is not  authorised");
+				 require(adminIndex > 1,"Atleast one admin is required");
+				// require(_adminAddress != owner,"owner cannot be removed");
 				 delete admins[_adminAddress];
-				 adminIndex -= 1;
+				 minus(adminIndex,1);
 				 emit AdminRemoved( _adminAddress,adminIndex);
+	   }
+	   function changeAdminLimit(uint16 _newLimit) public  onlyOwner{
+	       require(_newLimit > 1 && _newLimit > adminIndex,"New admin limit must be greater than 1 and than the previous admin count");
+	       sum(maxAdminIndex,1);
+	       	emit AdminLimitChanged(_newLimit);
 	   }
 
 	   //Allow an admin to add a student
-    function addStudent(string memory _email,
-	bytes32 _firstName,bytes32 _lastName,
-	bytes32 _commendation) public   onlyAdmins{
+    function addStudent(bytes32 _email,bytes32 _firstName,bytes32 _lastName,bytes32 _commendation,Grades _grades,AssignmentStatus _statusEnum)  onlyAdmins   
+	onlyNonExistentStudents(_email) public{
+	     bytes32ToString(_firstName); 
+	     bytes32ToString(_lastName);
+	     bytes32ToString(_commendation);
+	      Assignment memory _assignment;
+	      _assignment.assignment = _statusEnum; 
        Student memory _student;
 	   _student.email = _email;
 	   _student.firstName = _firstName;
 	   _student.lastName = _lastName;
 	   _student.commendation =_commendation;
-	   _student.grade = grade;
-	    _student.assignment = assignment;
-	   _student.active = false;
-	   	 studentIndex +=1;
-		 assignmentIndex = 0; 
+	   _student.grade = _grades;
+	   _student.active == true;
+	   _student.assignmentIndex = assignmentIndex; 
+	   studentIndex += 1;
+		assignmentIndex = 0; 
+		studentList.push(_email);
        emit StudentAdded("New student added",_email, _firstName, _lastName, _commendation);
     } 
 
 	//Allows Admin to update the information of a student
-	function updateStudentInfo(address __studentAddress,string memory __email,bytes32 __firstName,bytes32 ___lastName, 
-	bytes32 __commendation,assignmentStatus __assignments,grades __grade,bool __active) public onlyAdmins {
-	students[__studentAddress] = Student({
-	    email: __email,
-	    firstName : __firstName,
-		lastName : ___lastName,
-	    commendation:__commendation,
-	    assignment: __assignments,
-	    grade: __grade,
-		active:true
-	});
+	function updateStudentInfo(bytes32 __email,bytes32 __firstName,bytes32 __lastName, 
+	bytes32 __commendation,AssignmentStatus __statusEnum,Grades __grade,bool __activeOrNot) public onlyAdmins  {
+	      bytes32ToString(__firstName); 
+	       bytes32ToString(__lastName);
+	        bytes32ToString(__commendation);
+	   Assignment memory _assignment;
+	   _assignment.assignment = __statusEnum; 
+       Student memory _student;
+	   _student.email = __email;
+	  _student.firstName =__firstName;
+	   _student.lastName = __lastName;
+	   _student.commendation =__commendation;
+	   _student.grade = __grade;
+	   _student.active = __activeOrNot;
+	   _student.assignmentIndex = assignmentIndex; 
 	studentList.push(__email);
 	}
-
+	
+      function getStudent() view public returns (bytes32 [] memory) {
+             return studentList;
+     }
 	//Allows Admins to disable a student
-	function removeStudent(string memory _email)public  onlyAdmins{
+	function removeStudent(bytes32 _email)public onlyAdmins  onlyNonExistentStudents(_email){
 	     Student memory _student;
-	   _student.email = _email;
-         delete _email;
+	   studentsReverseMapping[ _email] = studentIndex;
+         _student.active == false;
 		 studentIndex -= 1;
 		emit StudentRemoved("A student has just been disable",_email,studentIndex);
 	}
 
-	//Allows Admin to create certificates
-	function createCertificate(address __studentAddress, 
-	string memory __email,
-	bytes32 __firstName,
-	bytes32 __lastName,
-	bytes32 __commendaton,
-	grades __grade,
-	assignmentStatus __assignment,
-	uint __assignmentIndex) public onlyAdmins {
-	certificates[__studentAddress] = Certificate({
-	    studentAddress: __studentAddress,
-	    email: __email,
-	    firstName : __firstName,
-	    lastName : __lastName,
-	    commendation: __commendaton,
-	    grade: __grade,
-		assignment: __assignment,
-		assignmentIndex : __assignmentIndex
-	});
-	certificateList.push(__email);
-    emit certCreated("A new certificate has been created for:",__firstName,"with address:",__studentAddress,"by:",msg.sender);
-	}
-	function displayPaticipantInfo(address __participantAddress) public{
-	    
+
+	function changeStudentName(bytes32 _email,bytes32 _newFirstName,bytes32  _newLastName) onlyAdmins 
+	onlyValidStudents(_email) public view{
+	     bytes32ToString(_newFirstName); 
+	     bytes32ToString(_newLastName); 
+	    Student memory _student;
+	    _student.email = _email;
+        _student.firstName = _newFirstName;
+		_student.lastName =  _newLastName;
 	}
 	
-	//Allows admin to remove a certificate.
-		function removeCertificate(address __participantAddress) onlyAdmins public{
-		delete certificates[__participantAddress];
-		emit certRemoved("A certificate belonging to:",__participantAddress,"has been deleted","at",now);
+	function changeStudentCommendation(bytes32 _email,bytes32 _newCommendation)  onlyAdmins onlyValidStudents(_email) public view{
+	   bytes32ToString(_newCommendation);
+	    Student memory _student;
+	    _student.email = _email;
+        _student.commendation = _newCommendation ;
 	}
-	//
-	function changeStudentName(address _studentAddress,bytes32 ___firstName,bytes32 ___lastName)  onlyAdmins public{
-	    Student memory _student = students[_studentAddress];
-        _student.firstName = ___firstName;
-		_student.lastName = ___lastName;
-	}
-	function changeStudentCommendation(address _studentAddress,bytes32 _commendation) public{
-	    Student memory _student = students[_studentAddress];
-        _student.commendation = _commendation ;
-	}
-
-	function changeStudentGrade( string memory _email,grades _grade) onlyAdmins public{
+ 
+	function changeStudentGrade( bytes32 _email,Grades _newGrade) onlyAdmins onlyValidStudents(_email)public view{
+	      bytes32ToString(_email); 
 		Student memory _student;
 		_student.email = _email;
-		_student.grade = _grade;
+		_student.grade =  _newGrade;
 	}
-	
-	function _calcAndFetchAssignmentIndex() public{
-	    
+		function changeStudentEmail(bytes32 _newEmail) onlyAdmins  onlyValidStudents(_newEmail) public {
+		  studentsReverseMapping[_newEmail] = studentIndex;
+	      bytes32ToString( _newEmail); 
+		Student memory _student;
+		_student.email =  _newEmail;
+		
+	}
+	function _calcAndFetchAssignmentIndex() public pure returns(uint16){
+	    bool isFinalProject;
+	    Student memory studentStruct;
+	    if(isFinalProject == true){
+	        studentStruct.assignmentIndex = 0;
+	        return  studentStruct.assignmentIndex;
+	    }else{
+	        sum(studentStruct.assignmentIndex,1);
+	        return studentStruct.assignmentIndex;
+	}
 	}
 
-	//function addAssignment() public{
-	    
-	//}
-	//function updateAssignmentStatus() public{
-	    
-	//}
-	//function getAssignmentInfo() public{
-	    
-	//}
-	//function donateEth() public{
-	    
-	//}
-	//function withdrawEth() public{
-	    
-	//}
+	function addAssignment(bytes32 _email,bytes32 _githublink,AssignmentStatus _status) onlyAdmins
+	 onlyNonExistentStudents(_email) public{
+	       bytes32ToString(_githublink); 
+	       bytes32ToString(_email);
+	       studentsReverseMapping[ _email] = studentIndex;
+	    Assignment memory __assignment;
+		__assignment.link = _githublink;
+		__assignment.assignment = _status;
+		  __assignment.isFinalProject;
+		assignmentIndex += 1;
+		_calcAndFetchAssignmentIndex();
+		assignmentList.push(_githublink);
+		emit AssignmentAdded(_githublink,_status,assignmentIndex);
+	 }
+	 
+	function updateAssignmentStatus(bytes32 __email,AssignmentStatus _newStatus) onlyAdmins
+	onlyNonExistentStudents(__email)  public{
+	      bytes32ToString(__email);
+	       studentsReverseMapping[ __email] = studentIndex;
+	    Assignment memory __assignment;
+		__assignment.assignment = _newStatus;
+		 __assignment.isFinalProject;
+		assignmentIndex += 1;
+		_calcAndFetchAssignmentIndex();
+		emit AssignmentUpdated( __email,  _newStatus,assignmentIndex);
+	}
 	
- //function checkName(string memory _email) public view returns (string memory) {
-//	 Student memory _students = students[_email];
-//	 _students = students[firstName];
-//	 _students = students[lastName];
-//	 return  firstName;
-//	 return lastName;
- //}  
+	 function getAssignment() view public returns(bytes32[] memory){
+             return assignmentList;
+     }
+	
+	function getAssignmentInfo(bytes32 _email,uint16 _assignmentIndex) public   returns(bytes32 _link,AssignmentStatus _status){
+	      bytes32ToString(_email); 
+	    Assignment memory __assignment;
+	     studentsReverseMapping[ _email] = studentIndex;
+		  assignmentIndex = _assignmentIndex;
+		  __assignment.link = _link;
+		  __assignment.assignment = _status; 
+	}
 
-//Get default assignment
-//function getDefaultAssignment() public view returns (uint) {
-//    return uint(defaultAssignment);
-//}
-//Get student grade
-function getGrade(string memory _email) public view returns (grades) {
+function getGrade(bytes32 _email) public view returns (Grades) {
+      bytes32ToString(_email); 
 	 Student memory _student;
 	 _student.email = _email;
      return grade;
 }
 
-function verifyCertByAddress (address _studentAddress) public  returns (bool){
+function verifyStudentByEmail (bytes32  _email) public  returns (bool){
+      bytes32ToString(_email); 
     uint i = 0;
-    while ( i < certificateList.length){
-        Certificate memory cert;
-         require(cert.studentAddress == _studentAddress,"Sorry,this address does not belong to a student");
-            certificateExist = true;
-        i++;
-	}
-	emit certVerified("Student with address:",_studentAddress,"is a graduate of the one million ethereum developers");
-    return certificateExist;    
+    while ( i < studentList.length){
+       Student memory student;
+        require(keccak256(abi.encode(student.email)) == keccak256(abi.encode(_email)),"Sorry,this email does not belong to a student"); 
+            students[_email].active == true;
+      i++;
+	}	emit studentVerified("Student with email:",_email,"is a graduate of the one million ethereum developers");
+   return studentExist == true;    
 }
-	}
+
+    function  donateEth(uint _donation) public payable {
+         balances[msg.sender] -=  _donation;
+        donationTotal +=  _donation; 
+        donationCount += 1;
+        
+        require(_donation >= 5000000000000000,"Below minimum donation");
+}
+
+        function withdraw(uint _withdrawal)  public payable onlyOwner{
+             balances[msg.sender] +=  _withdrawal;
+        donationTotal -=  _withdrawal; 
+     require(msg.sender.send(donationTotal));
+    
+    }
+
+
+    // STRING / BYTE CONVERSION
+  
+    function stringToBytes32(string memory _source) 
+    public pure 
+    returns (bytes32 result) {
+        bytes memory tempEmptyStringTest = bytes(_source);
+        string memory tempSource = _source;
+        
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
+    
+        assembly{
+            result := mload(add(tempSource, 32))
+        }
+    }
+      
+    function bytes32ToString(bytes32 _x) 
+    public pure 
+    returns (string memory result) {
+        bytes memory bytesString = new bytes(32);
+        uint charCount = 0;
+        for (uint j = 0; j < 32; j++) {
+            byte char = byte(bytes32(uint(_x) * 2 ** (8 * j)));
+            if (char != 0) {
+                bytesString[charCount] = char;
+                charCount++;
+            }
+        }
+        bytes memory bytesStringTrimmed = new bytes(charCount);
+        for (uint j = 0; j < charCount; j++) {
+            bytesStringTrimmed[j] = bytesString[j];
+        }
+        
+        result = string(bytesStringTrimmed);
+    }
+
+ //CUSTOMISED SAFEMATH LIBRARY
+    function sum(uint16 a, uint16 b) internal pure returns (uint16) {
+        uint16 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+    
+    function minus(uint16 a, uint16 b) internal pure returns (uint16) {
+        return minus(a, b, "SafeMath: subtraction overflow");
+    }
+
+    function minus(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
+        require(b <= a, errorMessage);
+        uint16 c = a - b;
+
+        return c;
+    }
+
+    function mult(uint16 a, uint16 b) internal pure returns (uint16) {
+        if (a == 0) {
+            return 0;
+        }
+
+        uint16 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    function divv(uint16 a, uint16 b) internal pure returns (uint16) {
+        return divv(a, b, "SafeMath: division by zero");
+    }
+
+    function divv(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
+        // Solidity only automatically asserts when dividing by 0
+        require(b > 0, errorMessage);
+        uint16 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    function modd(uint16 a, uint16 b) internal pure returns (uint16) {
+        return modd(a, b, "SafeMath: modulo by zero");
+    }
+
+    function modd(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+
+    }
+    
+   
