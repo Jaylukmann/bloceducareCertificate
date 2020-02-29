@@ -6,7 +6,7 @@
  
   
 
-contract BloceducareCerts is ExternalStorage{
+contract BloceducareCerts is ExternalStorage,Ownable,SafeMath {
   
 //events
 	//Admin related events
