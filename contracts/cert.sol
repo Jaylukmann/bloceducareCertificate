@@ -1,6 +1,6 @@
    pragma solidity <0.6.20; 
    pragma experimental ABIEncoderV2;
-  import "./externalStoragee.sol";
+  import "./externalStorage.sol";
   import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/ownership/Ownable.sol";
   import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/math/SafeMath.sol";
  
