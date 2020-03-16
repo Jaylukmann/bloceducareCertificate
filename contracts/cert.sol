@@ -2,6 +2,10 @@
    //pragma experimental ABIEncoderV2;
   import "./externalStoragee.sol";
   
+<<<<<<< HEAD
+=======
+
+>>>>>>> 50f5aac52557a30a789590a3dc2ab7275f2aed76
 contract BloceducareCerts is ExternalStorage {
   
 //events
