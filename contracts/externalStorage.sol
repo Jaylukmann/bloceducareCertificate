@@ -1,82 +1,74 @@
-
+  
 pragma solidity <0.6.20;
 
 contract ExternalStorage{
 	//GLOBAL STATE VARIABLES
 	address  owner;
 	address newOwner;
-	uint16  adminIndex; 
-	uint16 maxAdminIndex = 2;
-	uint studentIndex;
-	uint16 assignmentIndex;
+	uint16 public adminIndex; 
+	uint16 public maxAdminIndex = 0;
+	uint public studentIndex;
+	uint16 public assignmentIndex;
 	bool ownershipEnabled = true;
-	bool certificateExist = false;
-	uint certificateIndex;
+	bool studentExist = false;
+	uint public donationTotal;
+   uint public donationCount;
+ 
 
 
     //ENUMS
-	enum grades {noGrade,good,great,outstanding,epic,legendary}
-	grades grade;
+	enum Grades {noGrade,good,great,outstanding,epic,legendary}
+	Grades public grade;
+	
 	//grades constant defaultGrade = grades.noGrade;
    
 
-	enum assignmentStatus{inactive,pending,completed,cancelled}  
-	assignmentStatus assignment;
-	//assignments constant defaultAssignment = assignments.inactive;
-	// assignment = assignments.COMPLETED;
+	enum AssignmentStatus{inactive,pending,completed,cancelled} 
+	
+	AssignmentStatus public assignment;
+	
 
     //STRUCTS  
 	//Create a data structure to reperesent each admin
 	struct Admin{
 		bool authorized;
-		uint id;
+		uint adminId;
 	}
+	address[] public adminList;
+	mapping (address => Admin) admins;
+    
 	//Create a data structure to reperesent each assignment
 	struct Assignment{
-		string link;
-		assignmentStatus status;
+		bytes32 link;
+		AssignmentStatus assignment;
+		bool isFinalProject;
 	}
+		bytes32[] public assignmentList;
+		mapping(uint16 => Assignment) assignments; //Mapping assignment Index to Assignment struct
+		
+		
 	//Create a data structure to reperesent each student
 	struct Student{
-	    uint studentId;
-	    string email;
-		string firstName;
-		string lastName;
-		string commendation; 
-		grades grade;
-		assignmentStatus assignment;
+	    bytes32 email;
+		bytes32 firstName;
+		bytes32 lastName;
+		bytes32 commendation; 
+		Grades grade;
+		uint16 assignmentIndex;
 		bool active;
-		 
 	}
-	// Create a data structure to reperesent each certificate
-	struct Certificate{
-	uint certificateId;
-	address studentAddress; 
-	string email;
-	string firstName;
-	string lastName;
-	string commendation;
-	grades grade;
-	assignmentStatus assignment;
-	uint assignmentIndex;
-	} 
-
-//Arrays of certificates,admins,students,and assignments
-	string[] certificateList;
-	address[] adminList;
-	string[] studentList;
-	string[] assignmentList;
-
-
-	//mapping
-	mapping(address => Certificate) public certificates;
-	mapping(string => bool) private isParticipant;
-	mapping (address => bool) admins;
-    mapping(address =>Admin)adminReverseMapping;
-	mapping(address => Student) students;
-	mapping(string => uint) studentsReverseMapping;
-	mapping(uint => Assignment) assignments;
+		bytes32[] public studentList;
+	mapping(bytes32 => Student) students;
+	mapping(bytes32=> uint) studentsReverseMapping;
+    //donate and withdraw mappings
+     mapping(address => uint256) balances;
 }
+
+
+	
+
+
+
     
 
 
