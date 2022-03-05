@@ -1,7 +1,7 @@
 
     pragma solidity <0.6.20; 
    //pragma experimental ABIEncoderV2;
-  import "./externalStoragee.sol";
+  import "./externalStorage.sol";
  
 contract BloceducareCerts is ExternalStorage {
   
