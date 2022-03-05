@@ -1,4 +1,5 @@
-pragma solidity ^0.6.0;
+pragma solidity < 0.8.12;
+// SPDX-License-Identifier: MIT;
 
 /**
  * @dev Wrappers over Solidity's arithmetic operations with added overflow
@@ -154,3 +155,57 @@ library SafeMath {
         return a % b;
     }
 }
+//CUSTOMISED SAFEMATH LIBRARY
+    function sum(uint16 a, uint16 b) internal pure returns (uint16) {
+        uint16 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+    
+    function minus(uint16 a, uint16 b) internal pure returns (uint16) {
+        return minus(a, b, "SafeMath: subtraction overflow");
+    }
+
+    function minus(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
+        require(b <= a, errorMessage);
+        uint16 c = a - b;
+
+        return c;
+    }
+
+    function mult(uint16 a, uint16 b) internal pure returns (uint16) {
+        if (a == 0) {
+            return 0;
+        }
+
+        uint16 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    function divv(uint16 a, uint16 b) internal pure returns (uint16) {
+        return divv(a, b, "SafeMath: division by zero");
+    }
+
+    function divv(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
+        // Solidity only automatically asserts when dividing by 0
+        require(b > 0, errorMessage);
+        uint16 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    function modd(uint16 a, uint16 b) internal pure returns (uint16) {
+        return modd(a, b, "SafeMath: modulo by zero");
+    }
+
+    function modd(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+
+
+	} 

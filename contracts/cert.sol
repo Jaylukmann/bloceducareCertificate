@@ -1,6 +1,8 @@
-    pragma solidity > 0.7.20; 
-   //pragma experimental ABIEncoderV2;
+    pragma solidity < 0.8.12;
+// SPDX-License-Identifier: MIT;
+    
   import "./externalStorage.sol";
+  import "/safeMath.sol";
  
 contract BloceducareCerts is ExternalStorage {
   
@@ -238,10 +240,11 @@ contract BloceducareCerts is ExternalStorage {
 	     sum(studentStruct.assignmentIndex,1);
 	     return studentStruct.assignmentIndex;
 	    }
+    }
 	
       
             
-      // STRING / BYTE CONVERSION
+      // STRING - BYTE CONVERSION
   
        function stringToBytes32 (string memory _source) 
           public pure 
@@ -263,7 +266,7 @@ contract BloceducareCerts is ExternalStorage {
         bytes memory bytesString = new bytes(32);
         uint charCount = 0;
         for (uint j = 0; j < 32; j++) {
-            byte char = byte(bytes32(uint(_x) * 2 ** (8 * j)));
+            bytes char = bytes(bytes32(uint(_x) * 2 ** (8 * j)));
             if (char != 0) {
                 bytesString[charCount] = char;
                 charCount++;
@@ -276,58 +279,6 @@ contract BloceducareCerts is ExternalStorage {
         
         result = string(bytesStringTrimmed);
     }
+}
 
- //CUSTOMISED SAFEMATH LIBRARY
-    function sum(uint16 a, uint16 b) internal pure returns (uint16) {
-        uint16 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-
-        return c;
-    }
-    
-    function minus(uint16 a, uint16 b) internal pure returns (uint16) {
-        return minus(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function minus(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
-        require(b <= a, errorMessage);
-        uint16 c = a - b;
-
-        return c;
-    }
-
-    function mult(uint16 a, uint16 b) internal pure returns (uint16) {
-        if (a == 0) {
-            return 0;
-        }
-
-        uint16 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-
-    function divv(uint16 a, uint16 b) internal pure returns (uint16) {
-        return divv(a, b, "SafeMath: division by zero");
-    }
-
-    function divv(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
-        // Solidity only automatically asserts when dividing by 0
-        require(b > 0, errorMessage);
-        uint16 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    function modd(uint16 a, uint16 b) internal pure returns (uint16) {
-        return modd(a, b, "SafeMath: modulo by zero");
-    }
-
-    function modd(uint16 a, uint16 b, string memory errorMessage) internal pure returns (uint16) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-
-
-	} 
+ 
