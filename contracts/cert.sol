@@ -1,6 +1,6 @@
     pragma solidity > 0.7.20; 
    //pragma experimental ABIEncoderV2;
-  import "./externalStoragee.sol";
+  import "./externalStorage.sol";
  
 contract BloceducareCerts is ExternalStorage {
   
@@ -13,7 +13,7 @@ contract BloceducareCerts is ExternalStorage {
      //Student related events
 	event StudentAdded(string msg,bytes32 _email,bytes32 _firstName,bytes32 _lastName,bytes32 _commendation);
 	event StudentRemoved(string msg,bytes32 _email,uint studentIndex);
-        event StudentCommendationUpdated(bytes32 _Email,bytes32 _newCommendation);
+    event StudentCommendationUpdated(bytes32 _Email,bytes32 _newCommendation);
 	event StudentNameUpdated(bytes32 _Email,bytes32 _newFirstName,bytes32 _newLastName);
 	event StudentGradeUpdated(bytes32 _Email,Grades _newGrade);
 	event StudentEmailUpdated(bytes32 _oldEmail,bytes32 _newEmail);
@@ -225,9 +225,9 @@ contract BloceducareCerts is ExternalStorage {
 	      studentsReverseMapping[_newEmail] = studentIndex;
 	      bytes32ToString( _newEmail); 
 	      Student memory _student;
-	      _student.email =  _newEmail;
-		
+	      _student.email =  _newEmail;	
 	}
+	
 	function _calcAndFetchAssignmentIndex() public pure returns(uint16){
 	    bool isFinalProject;
 	    Student memory studentStruct;
@@ -239,7 +239,8 @@ contract BloceducareCerts is ExternalStorage {
 	     return studentStruct.assignmentIndex;
 	    }
 	
-        
+      
+            
       // STRING / BYTE CONVERSION
   
        function stringToBytes32 (string memory _source) 
