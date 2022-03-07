@@ -1,5 +1,6 @@
 	//SPDX-License-Identifier: LICENSED
-	pragma abicoder v2 ;
+	//pragma experimental ABIEncoder v2 ;
+    
 	pragma solidity <0.8.12 ;
 	
 	contract BloceducareCerts{
@@ -183,14 +184,9 @@
 	} 
 
 	//CONSTRUCTOR
-	constructor () {
+	constructor ()  {
 		owner = msg.sender;
 		maxAdminIndex = 2;
-		Admin memory _admin;
-		grade = Grades.noGrade;
-		assignment = AssignmentStatus.inactive;
-		_admin.authorized = true;
-		_addAdmin(owner);
 		adminList.push(owner);
 		adminIndex += 1;
 		
@@ -200,30 +196,30 @@
 
 	//transfer ownership of the contract to a given address
 	  function transferOwnership(address _newOwner) public onlyOwner  {
-		   addAdmin(_newOwner);
 		    owner = _newOwner;
-	      _removeAdmin(owner);       
+	      _removeAdmin(owner); 
+		  addAdmin(_newOwner);      
     }
    
 	//renounce ownership of the contract
-	 function renounceOwnership() public onlyOwner  returns(bool) {
+	 function renounceOwnership() public onlyOwner  returns(bool success) {
 		 _removeAdmin(owner);
-		
-		
+		 return success	;
     }
+
     //Allows owner to add an admin
 	 function addAdmin(address _newAdmin) public onlyOwner{
 	     Admin memory _admin;
 		_admin.adminId = adminIndex;
-		require(adminIndex == maxAdminIndex,"Maximum number of admins reached");
 		_addAdmin(_newAdmin);
 		emit AdminAdded(_newAdmin);
        }
  
 	   //Allows new owner to add an admin
-	   function _addAdmin(address _newAdmin)  onlyNewOwner internal returns(bool success){
+	   function _addAdmin(address _newAdmin)  onlyOwner internal returns(bool success){
 	    Admin memory _admin;
-	     require(admins[_newAdmin].authorized == true,"Admin already exist");
+	     require(admins[_newAdmin].authorized == false,"Admin already exist");
+		 require(adminIndex <= maxAdminIndex,"Maximum admin reached");
 	     admins[_newAdmin] = _admin;
 	     admins[_newAdmin].authorized = true;
 		adminIndex += 1;
@@ -235,21 +231,24 @@
        function getAdmin() view public returns (address[] memory){
              return adminList;
      }
+	   function getOwner() view public returns (address){
+             return owner;
+     }
 	  //Allow the current owner to remove an Admin
-	   function _removeAdmin(address _adminAddress) internal onlyOwner{ 
+	   function _removeAdmin(address _adminAddress)   internal  onlyOwner{ 
 		  Admin memory _admin;
-		  _admin.adminId = adminIndex;
-		   require(_admin.authorized == true,"Admin is not  authorised");
+		  _admin.adminId = adminIndex; 
 		   require(adminIndex > 1,"Atleast one admin is required");
-		   // require(_adminAddress != owner,"owner cannot be removed");
-		   delete admins[_adminAddress];
+		    require(_adminAddress != owner,"owner cannot be disabled");
+			 adminIndex -= 1;
+            adminList[adminIndex] =  adminList[adminList.length - 1 ];
+		    adminList.pop();
 		    emit AdminRemoved( _adminAddress);
-		   minus(adminIndex,1);
+		 
 		  
 	   }
 	   //Allow the owner to remove an Admin
 	   function removeAdmin(address _Admin) public onlyOwner{
-	       require(_Admin != owner,"Owner cannot be disabled");
 		   _removeAdmin(_Admin);
 	      
 	   }
@@ -262,13 +261,15 @@
 
 	   //Allow an admin to add a student
           function addStudent(bytes memory _email,bytes memory _firstName,bytes memory _lastName,bytes memory _commendation,Grades _grades,AssignmentStatus _statusEnum)  onlyAdmins   
-	     onlyNonExistentStudents(_email) public{
+	      public{
+		 bytesToString(_email);
 	     bytesToString(_firstName); 
 	     bytesToString(_lastName);
 	     bytesToString(_commendation);
 	     Assignment memory _assignment;
 	     _assignment.assignment = _statusEnum; 
              Student memory _student;
+		require(_student.active == true,"Student already exist");
 	     _student.email = _email;
 	     _student.firstName = _firstName;
 	     _student.lastName = _lastName;
@@ -305,10 +306,11 @@
              return studentList;
      }
 	//Allows Admins to disable a student
-	function removeStudent(bytes memory _email)public onlyAdmins  onlyNonExistentStudents(_email){
+	function removeStudent(bytes memory _email)public onlyAdmins  {
 	     Student memory _student;
 	     studentsReverseMapping[ _email] = studentIndex;
-             _student.active == false;
+		require(_student.active == true,"Student does not exist");
+             delete students[_email];
 			 sub(studentIndex,1); 
 	emit StudentRemoved("A student has just been disable",_email,studentIndex);
 	}
