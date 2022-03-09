@@ -72,7 +72,7 @@
 	uint16 public assignmentIndex;
 	bool ownershipEnabled = true;
 	bool studentExist = false;
-	uint public donationTotal;
+	uint public totalDonation;
    	uint public donationCount;
  
 
@@ -109,8 +109,7 @@
 	//A data structure  reperesenting each student
 	struct Student{
 	    bytes email;
-		bytes firstName;
-		bytes lastName;
+		bytes names;
 		bytes commendation; 
 		Grades grade;
 		uint16 assignmentIndex;
@@ -131,10 +130,10 @@
 	event AdminLimitChanged(uint _newAdminLimit);
 
      //Student related events
-	event StudentAdded(string msg,bytes _email,bytes _firstName,bytes _lastName,bytes _commendation);
+	event StudentAdded(string msg,bytes _email,bytes _names,bytes _commendation);
 	event StudentRemoved(string msg,bytes _email,uint studentIndex);
     event StudentCommendationUpdated(bytes _Email,bytes _newCommendation);
-	event StudentNameUpdated(bytes _Email,bytes _newFirstName,bytes _newLastName);
+	event StudentNameUpdated(bytes _Email,bytes _names);
 	event StudentGradeUpdated(bytes _Email,Grades _newGrade);
 	event StudentEmailUpdated(bytes _oldEmail,bytes _newEmail);
 	event studentVerified(string msg,bytes addressVerified,string _msg);
@@ -146,6 +145,9 @@
 	//Certificate related events
 	event certCreated(string _msg,string _name,string _with,address students,string by,address creator); 
 	event certRemoved(string _msg,address _participantAddress,string _msg2,string at,uint time);
+
+	//Ownership related event
+	  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
  //MODIFIERS
 	modifier onlyOwner(){
@@ -184,8 +186,8 @@
 	} 
 
 	//CONSTRUCTOR
-	constructor ()  {
-		owner = msg.sender;
+	constructor () payable  {
+		owner = payable(msg.sender);
 		maxAdminIndex = 2;
 		adminList.push(owner);
 		adminIndex += 1;
@@ -195,22 +197,25 @@
 	//FUNCTIONS
 
 	//transfer ownership of the contract to a given address
-	  function transferOwnership(address _newOwner) public onlyOwner  {
-		    owner = _newOwner;
-	      _removeAdmin(owner); 
-		  addAdmin(_newOwner);      
+	  function transferOwnership(address _newOwner) public onlyOwner  { 
+			  require(_newOwner != address(0));
+			  addAdmin(_newOwner);
+        	   emit OwnershipTransferred(owner, _newOwner);
+        	  owner = _newOwner;          
     }
    
 	//renounce ownership of the contract
 	 function renounceOwnership() public onlyOwner  returns(bool success) {
 		 _removeAdmin(owner);
-		 return success	;
+		 return success;	
     }
-
+	
     //Allows owner to add an admin
 	 function addAdmin(address _newAdmin) public onlyOwner{
 	     Admin memory _admin;
 		_admin.adminId = adminIndex;
+		require(adminIndex <= maxAdminIndex,"Maximum number of admins reached");
+		_admin.authorized = true;
 		_addAdmin(_newAdmin);
 		emit AdminAdded(_newAdmin);
        }
@@ -231,9 +236,14 @@
        function getAdmin() view public returns (address[] memory){
              return adminList;
      }
-	   function getOwner() view public returns (address){
+	   function getOwner() viewgit public returns (address owner){
              return owner;
      }
+
+	  function getTotalDonations() view public returns(uint) {
+    return totalDonation;
+  }
+
 	  //Allow the current owner to remove an Admin
 	   function _removeAdmin(address _adminAddress)   internal  onlyOwner{ 
 		  Admin memory _admin;
@@ -243,6 +253,7 @@
 			 adminIndex -= 1;
             adminList[adminIndex] =  adminList[adminList.length - 1 ];
 		    adminList.pop();
+		    
 		    emit AdminRemoved( _adminAddress);
 		 
 		  
@@ -260,41 +271,38 @@
 	   }
 
 	   //Allow an admin to add a student
-          function addStudent(bytes memory _email,bytes memory _firstName,bytes memory _lastName,bytes memory _commendation,Grades _grades,AssignmentStatus _statusEnum)  onlyAdmins   
+          function addStudent(bytes memory _email,bytes memory _names,bytes memory _commendation,Grades _grades,AssignmentStatus _statusEnum)  onlyNonOwnerAdmins   
 	      public{
 		 bytesToString(_email);
-	     bytesToString(_firstName); 
-	     bytesToString(_lastName);
+	     bytesToString(_names); 
 	     bytesToString(_commendation);
 	     Assignment memory _assignment;
 	     _assignment.assignment = _statusEnum; 
              Student memory _student;
-		require(_student.active == true,"Student already exist");
+		require(_student.active == false,"Student already exist");
 	     _student.email = _email;
-	     _student.firstName = _firstName;
-	     _student.lastName = _lastName;
+	     _student.names = _names;
 	     _student.commendation =_commendation;
 	     _student.grade = _grades;
+		 _assignment.assignment = _statusEnum; 
 	     _student.active == true;
 	     _student.assignmentIndex = assignmentIndex; 
 	     studentIndex += 1;
 	     assignmentIndex = 0; 
 	     studentList.push(_email);
-       emit StudentAdded("New student added",_email, _firstName, _lastName, _commendation);
+       emit StudentAdded("New student added",_email, _names, _commendation);
     } 
 
 	//Allows Admin to update the information of a student
-	function updateStudentInfo(bytes memory __email,bytes memory __firstName,bytes memory __lastName, 
+	function updateStudentInfo(bytes memory __email,bytes memory __names, 
 	   bytes memory __commendation,AssignmentStatus __statusEnum,Grades __grade,bool __activeOrNot) public onlyAdmins  {
-	     bytesToString(__firstName); 
-	     bytesToString(__lastName);
+	     bytesToString(__names); 
 	     bytesToString(__commendation);
 	     Assignment memory _assignment;
 	    _assignment.assignment = __statusEnum; 
             Student memory _student;
 	    _student.email = __email;
-	    _student.firstName =__firstName;
-	    _student.lastName = __lastName;
+	    _student.names =__names;
 	    _student.commendation =__commendation;
 	    _student.grade = __grade;
 	    _student.active = __activeOrNot;
@@ -308,23 +316,24 @@
 	//Allows Admins to disable a student
 	function removeStudent(bytes memory _email)public onlyAdmins  {
 	     Student memory _student;
+		 _student.email = _email;
 	     studentsReverseMapping[ _email] = studentIndex;
 		require(_student.active == true,"Student does not exist");
-             delete students[_email];
-			 sub(studentIndex,1); 
+		 studentIndex -= 1;
+        studentList[studentIndex] =  studentList[studentList.length - 1 ];
+		studentList.pop();
+		_student.active == false;
 	emit StudentRemoved("A student has just been disable",_email,studentIndex);
 	}
 
 
-	function changeStudentName(bytes memory _email,bytes memory _newFirstName,bytes memory _newLastName) onlyAdmins 
+	function changeStudentName(bytes memory _email,bytes memory _newNames) onlyAdmins 
 	onlyValidStudents(_email) public {
-	     bytesToString(_newFirstName); 
-	     bytesToString(_newLastName); 
+	     bytesToString(_newNames); 
 	     Student memory _student;
 	     _student.email = _email;
-             _student.firstName = _newFirstName;
-	     _student.lastName =  _newLastName;
-	     emit StudentNameUpdated(_email,_newFirstName,_newLastName);
+             _student.names = _newNames;
+	     emit StudentNameUpdated(_email,_newNames);
 	}
 	
 	function changeStudentCommendation(bytes memory _email,bytes memory _newCommendation)  onlyAdmins onlyValidStudents(_email) public {
@@ -359,6 +368,11 @@
 	     return studentStruct.assignmentIndex;
 	    }
     }
+
+	 function donate() public payable {
+    (bool success,) = owner.call{value: msg.value}("");
+    require(success, "Failed to send money");
+  }
 	
       
             
